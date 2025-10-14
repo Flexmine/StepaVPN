@@ -1,0 +1,49 @@
+name: Update all subscription files
+
+on:
+  workflow_dispatch:
+    inputs:
+      content:
+        description: "Новый текст (будет записан во все файлы в корне репозитория)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main  # если у вас другая ветка по умолчанию — укажите её
+
+      - name: Overwrite files with provided content
+        shell: bash
+        run: |
+          CONTENT="${{ github.event.inputs.content }}"
+          shopt -s nullglob
+          updated=0
+          for f in *; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              README.md|LICENSE|.gitignore) continue;;
+            esac
+            # Записываем без добавления лишней новой строки
+            printf '%s' "$CONTENT" > "$f"
+            updated=$((updated+1))
+          done
+          echo "Updated $updated files."
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Bulk update subscriptions via workflow"
+            git push
+          fi
